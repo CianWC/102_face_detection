@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+    <style>
+        #detectionLog {
+            width: 640px;
+            height: 200px;
+            margin-top: 10px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Object Detection using TensorFlow.js</h1>
+    <video id="video" width="640" height="480" autoplay playsinline style="display: none;"></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <div id="detectionLog"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const detectionLog = document.getElementById('detectionLog');
+
+        function getCurrentTime() {
+            const now = new Date();
+            return now.toLocaleTimeString('en-US', { hour12: false });
+        }
+
+        function logDetection(detections) {
+            const time = getCurrentTime();
+            let logEntry = `${time}: Detected `;
+            if (detections.length === 0) {
+                logEntry += "no objects";
+            } else {
+                logEntry += detections.map(d => `${d.class} (${Math.round(d.score * 100)}%)`).join(', ');
+            }
+            detectionLog.innerHTML = logEntry + '<br>' + detectionLog.innerHTML;
+        }
+
+        // Load the COCO-SSD model
+        cocoSsd.load().then(model => {
+            console.log("Model loaded successfully");
+            // Get access to the camera
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        video.srcObject = stream;
+                        video.onloadedmetadata = () => {
+                            video.play();
+                            detectFrame();
+                        };
+                    })
+                    .catch(err => {
+                        console.error("Error accessing the camera:", err);
+                    });
+            } else {
+                console.error("getUserMedia is not supported by this browser");
+            }
+
+            function detectFrame() {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    // Draw video frame
+                    ctx.drawImage(video, 0, 0, ctx.canvas.width, ctx.canvas.height);
+
+                    model.detect(video).then(predictions => {
+                        console.log("Predictions:", predictions);
+                        // Log detections
+                        logDetection(predictions);
+                        // Draw bounding boxes and labels
+                        predictions.forEach(prediction => {
+                            const [x, y, width, height] = prediction.bbox;
+                            ctx.strokeStyle = '#00FFFF';
+                            ctx.lineWidth = 4;
+                            ctx.strokeRect(x, y, width, height);
+                            ctx.font = '18px Arial';
+                            ctx.fillStyle = '#00FFFF';
+                            ctx.fillText(prediction.class + ' - ' + Math.round(prediction.score * 100) + '%', x, y > 10 ? y - 5 : 10);
+                        });
+                    }).catch(error => {
+                        console.error("Error during detection:", error);
+                    });
+                }
+
+                // Call detectFrame again
+                requestAnimationFrame(detectFrame);
+            }
+        }).catch(error => {
+            console.error("Error loading the model:", error);
+        });
+    </script>
+</body>
+</html>
