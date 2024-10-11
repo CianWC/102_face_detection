@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition</title>
+    <style>
+        #detectionLog {
+            width: 640px;
+            height: 200px;
+            margin-top: 10px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Face Recognition</h1>
+    <video id="video" width="640" height="480" autoplay playsinline style="display: none;"></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <div id="detectionLog"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const detectionLog = document.getElementById('detectionLog');
+
+        function getCurrentTime() {
+            const now = new Date();
+            return now.toLocaleTimeString('en-US', { hour12: false });
+        }
+
+        function logDetection(detections) {
+            const time = getCurrentTime();
+            let logEntry = `${time}: `;
+            if (detections.length === 0) {
+                logEntry += "No faces detected";
+            } else {
+                const recognizedFaces = detections.filter(d => d.name !== "Unknown");
+                if (recognizedFaces.length > 0) {
+                    logEntry += `Access Granted: ${recognizedFaces.length} recognized face(s)`;
+                } else {
+                    logEntry += `Access Denied: No recognized faces`;
+                }
+            }
+            detectionLog.innerHTML = logEntry + '<br>' + detectionLog.innerHTML;
+        }
+
+        // Get access to the camera
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        detectFrame();
+                    };
+                })
+                .catch(err => {
+                    console.error("Error accessing the camera:", err);
+                    detectionLog.innerHTML = `Error accessing the camera: ${err.message}<br>` + detectionLog.innerHTML;
+                });
+        } else {
+            console.error("getUserMedia is not supported by this browser");
+            detectionLog.innerHTML = "getUserMedia is not supported by this browser<br>" + detectionLog.innerHTML;
+        }
+
+        function detectFrame() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                // Draw video frame
+                ctx.drawImage(video, 0, 0, ctx.canvas.width, ctx.canvas.height);
+
+                // Get the image data as base64
+                const imageData = canvas.toDataURL('image/jpeg');
+
+                // Send the image data to the server
+                fetch('http://localhost:5000/detect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image: imageData }),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(detections => {
+                    console.log("Detections:", detections);
+
+                    // Ensure detections is an array
+                    if (!Array.isArray(detections)) {
+                        console.error("Detections is not an array:", detections);
+                        return; // Exit if detections is not valid
+                    }
+
+                    logDetection(detections); // Log detections
+                    detections.forEach(detection => {
+                        if (detection.bbox && detection.bbox.length === 4) {
+                            const [left, top, right, bottom] = detection.bbox;
+                            ctx.strokeStyle = detection.name !== "Unknown" ? '#00FF00' : '#FF0000';
+                            ctx.lineWidth = 4;
+                            ctx.strokeRect(left, top, right - left, bottom - top);
+                            ctx.font = '18px Arial';
+                            ctx.fillStyle = detection.name !== "Unknown" ? '#00FF00' : '#FF0000';
+                            const label = detection.name !== "Unknown" ? 'Access Granted' : 'Access Denied';
+                            ctx.fillText(label, left, top > 10 ? top - 5 : 10);
+                        } else {
+                            console.error("Invalid bbox data:", detection.bbox);
+                        }
+                    });
+                })
+
+
+                // .catch(error => {
+                //     console.error("Error during detection:", error);
+                //     detectionLog.innerHTML = `Error during detection: ${error.message}<br>` + detectionLog.innerHTML;
+                // });
+            }
+
+            // Call detectFrame again
+            requestAnimationFrame(detectFrame);
+        }
+    </script>
+</body>
+</html>
