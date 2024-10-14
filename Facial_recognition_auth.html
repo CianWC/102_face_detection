@@ -100,20 +100,6 @@
                     }
 
                     logDetection(detections); // Log detections
-                    detections.forEach(detection => {
-                        if (detection.bbox && detection.bbox.length === 4) {
-                            const [left, top, right, bottom] = detection.bbox;
-                            ctx.strokeStyle = detection.name !== "Unknown" ? '#00FF00' : '#FF0000';
-                            ctx.lineWidth = 4;
-                            ctx.strokeRect(left, top, right - left, bottom - top);
-                            ctx.font = '18px Arial';
-                            ctx.fillStyle = detection.name !== "Unknown" ? '#00FF00' : '#FF0000';
-                            const label = detection.name !== "Unknown" ? 'Access Granted' : 'Access Denied';
-                            ctx.fillText(label, left, top > 10 ? top - 5 : 10);
-                        } else {
-                            console.error("Invalid bbox data:", detection.bbox);
-                        }
-                    });
                 })
 
 
