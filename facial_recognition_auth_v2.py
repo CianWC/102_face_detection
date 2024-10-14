@@ -63,6 +63,9 @@ def load_known_faces(directory):
 # Load known faces from the directory
 load_known_faces("known_faces")
 
+@app.route('/')  # Add this route
+def index():
+    return "Welcome to the Facial Recognition App!" 
 
 @app.route('/detect', methods=['POST'])
 def detect():
