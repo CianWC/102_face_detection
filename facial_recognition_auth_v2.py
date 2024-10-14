@@ -12,6 +12,7 @@ CORS(app)  # This allows cross-origin requests
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # Load known faces
 known_face_encodings = []
@@ -19,18 +20,44 @@ known_face_names = []
 
 
 def load_known_faces(directory):
+    global known_face_encodings, known_face_names
+    known_face_encodings = []
+    known_face_names = []
+
+    logger.info(f"Attempting to load known faces from directory: {directory}")
+
+    if not os.path.exists(directory):
+        logger.error(f"Directory does not exist: {directory}")
+        return
+
     for person_name in os.listdir(directory):
         person_folder = os.path.join(directory, person_name)
-        if os.path.isdir(person_folder):  # Check if it's a directory
-            for filename in os.listdir(person_folder):
-                if filename.endswith(".jpg") or filename.endswith(".png"):
-                    image = load_image_file(os.path.join(person_folder, filename))
-                    encoding = face_encodings(image)
-                    if encoding:  # Check if encoding is found
-                        known_face_encodings.append(encoding[0])
-                        known_face_names.append(person_name)  # Use the folder name as the person's name
+        logger.debug(f"Checking folder: {person_folder}")
 
-    logging.info(f"Loaded {len(known_face_names)} known faces")
+        if os.path.isdir(person_folder):
+            logger.debug(f"Processing directory: {person_folder}")
+            for filename in os.listdir(person_folder):
+                if filename.lower().endswith((".jpg", ".jpeg", ".png")):
+                    image_path = os.path.join(person_folder, filename)
+                    logger.debug(f"Processing image: {image_path}")
+                    try:
+                        image = load_image_file(image_path)
+                        logger.debug(f"Image loaded successfully: {image_path}")
+
+                        face_encodings_result = face_encodings(image)
+                        if face_encodings_result:
+                            encoding = face_encodings_result[0]
+                            known_face_encodings.append(encoding)
+                            known_face_names.append(person_name)
+                            logger.info(f"Successfully encoded face for {person_name} from {filename}")
+                        else:
+                            logger.warning(f"No face found in {filename} for {person_name}")
+                    except Exception as e:
+                        logger.error(f"Error processing {filename} for {person_name}: {str(e)}")
+        else:
+            logger.warning(f"Not a directory: {person_folder}")
+
+    logger.info(f"Loaded {len(known_face_names)} known faces")
 
 
 # Load known faces from the directory
@@ -39,7 +66,7 @@ load_known_faces("known_faces")
 
 @app.route('/detect', methods=['POST'])
 def detect():
-    logging.debug("Received detection request")
+    logger.debug("Received detection request")
 
     # Get the image data from the request
     image_data = request.json['image']
@@ -52,7 +79,7 @@ def detect():
     # Use OpenCV to decode the image array
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
-    logging.debug(f"Received image shape: {image.shape}")
+    logger.debug(f"Received image shape: {image.shape}")
 
     # Convert image to RGB (OpenCV loads in BGR format)
     rgb_frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -61,7 +88,7 @@ def detect():
     face_locations_frame = face_locations(rgb_frame)
     face_encodings_frame = face_encodings(rgb_frame, face_locations_frame)
 
-    logging.debug(f"Detected {len(face_locations_frame)} faces")
+    logger.debug(f"Detected {len(face_locations_frame)} faces")
 
     # Initialize the results
     results = []
@@ -80,7 +107,7 @@ def detect():
             "bbox": [left, top, right, bottom]
         })
 
-    logging.debug(f"Results: {results}")
+    logger.debug(f"Results: {results}")
     return jsonify(results)
 
 
