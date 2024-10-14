@@ -93,8 +93,9 @@
             } else {
                 const recognizedFaces = detections.filter(d => d.name !== "Unknown");
                 if (recognizedFaces.length > 0) {
+                    const name = recognizedFaces[0].name.replace('_', ' ');
                     logMessage(`Access Granted: ${recognizedFaces.length} recognized face(s)`);
-                    updateAccessStatus('granted', 'Access Granted');
+                    updateAccessStatus('granted', `Access Granted: Welcome ${name}`);
                 } else {
                     logMessage(`Access Denied: No recognized faces`);
                     updateAccessStatus('denied', 'Access Denied');
