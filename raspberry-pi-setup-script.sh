@@ -7,11 +7,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Install dependencies
+# Install dependencies (excluding deprecated Qt4 packages)
 sudo apt install -y python3-pip python3-dev libatlas-base-dev \
-    libhdf5-dev libhdf5-serial-dev libhdf5-103 libqtgui4 libqtwebkit4 \
-    libqt4-test python3-pyqt5 libopenblas-dev libblas-dev \
-    liblapack-dev gfortran libopencv-dev python3-opencv
+    libhdf5-dev libhdf5-serial-dev libhdf5-103 python3-pyqt5 \
+    libopenblas-dev libblas-dev liblapack-dev gfortran \
+    libopencv-dev python3-opencv
 if [ $? -ne 0 ]; then
     echo "Error during system package installation. Please check the logs."
     exit 1
