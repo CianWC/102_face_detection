@@ -5,14 +5,17 @@ import numpy as np
 import base64
 import os
 import cv2
+import logging
 
 app = Flask(__name__)
 CORS(app)  # This allows cross-origin requests
 
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+
 # Load known faces
 known_face_encodings = []
 known_face_names = []
-frame_count = 0  # Global counter to track frames
 
 
 def load_known_faces(directory):
@@ -27,6 +30,8 @@ def load_known_faces(directory):
                         known_face_encodings.append(encoding[0])
                         known_face_names.append(person_name)  # Use the folder name as the person's name
 
+    logging.info(f"Loaded {len(known_face_names)} known faces")
+
 
 # Load known faces from the directory
 load_known_faces("known_faces")
@@ -34,14 +39,7 @@ load_known_faces("known_faces")
 
 @app.route('/detect', methods=['POST'])
 def detect():
-    global frame_count  # Access the global frame counter
-
-    # Increment the frame counter
-    frame_count += 1
-
-    # Skip every n frames (e.g., only process every 5th frame)
-    if frame_count % 30 != 0:
-        return jsonify({"status": "skipped"})
+    logging.debug("Received detection request")
 
     # Get the image data from the request
     image_data = request.json['image']
@@ -54,12 +52,16 @@ def detect():
     # Use OpenCV to decode the image array
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
+    logging.debug(f"Received image shape: {image.shape}")
+
     # Convert image to RGB (OpenCV loads in BGR format)
     rgb_frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     # Find all face locations and face encodings in the current frame
     face_locations_frame = face_locations(rgb_frame)
     face_encodings_frame = face_encodings(rgb_frame, face_locations_frame)
+
+    logging.debug(f"Detected {len(face_locations_frame)} faces")
 
     # Initialize the results
     results = []
@@ -78,8 +80,9 @@ def detect():
             "bbox": [left, top, right, bottom]
         })
 
+    logging.debug(f"Results: {results}")
     return jsonify(results)
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
